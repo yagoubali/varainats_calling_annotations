@@ -3,13 +3,15 @@ nextflow.enable.dsl=2
 
 //params.fastqDir="/media/yagoubali/bioinfo3/Project_Paul/SRR22797223"
 params.fastqDir="/media/yagoubali/bioinfo3/Project_Paul/test_data"
-params.reference="/media/yagoubali/bioinfo3/Project_Paul/Reference_data/resource-GRCh38/hs38DH-extra.fa"
+params.reference_baseFolder="/media/yagoubali/bioinfo3/Project_Paul/broadinstitute/bundle"
+referenceFile="${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta"
+params.gatkPath="/media/yagoubali/bioinfo3/Project_Paul/gatk-4.4.0.0/gatk"
 params.outDir="testing"
 params.pl= "illumina"
 raw_reads = params.fastqDir
 out_dir = file(params.outDir,  mode: "copy")
 
-reference=channel.value(params.reference)
+reference=channel.value(referenceFile)
 out_dir.mkdir()
 
 
@@ -93,7 +95,7 @@ process run_bwa {
     script:
     readGroup="@RG\\tID:${pair_id}\\tLB:${pair_id}\\tPL:${params.pl}\\tSM:${pair_id}"
     """
-    bwa mem -t 2 -aM -R \"${readGroup}\" ${params.reference}   \
+    bwa mem -t 2 -aM -R \"${readGroup}\" ${referenceFile}   \
     ${params.fastqDir}/${pair_id}/${reads[0]}   \
     ${params.fastqDir}/${pair_id}/${reads[1]} > ${pair_id}.unsorted.raw.sam
     samtools view -S -b ${pair_id}.unsorted.raw.sam > ${pair_id}.bam
@@ -122,7 +124,7 @@ process run_markDuplicatesSpark {
 
     """
     mkdir -p ${pair_id}
-    /home/yagoubali/anaconda3/bin/gatk  \
+    ${params.gatkPath}  \
      --java-options "-Djava.io.tmpdir=${pair_id}" \
 	 MarkDuplicatesSpark \
 	-I ${out_dir}/mapping/${pair_id}/${reads[0]} \
@@ -132,6 +134,15 @@ process run_markDuplicatesSpark {
     // rm -r ${pair_id}
 }
 
+process run_BaseRecalibrator{
+     cpus { 2 }
+    memory '2 GB'
+    //publishDir "${out_dir}/markDuplicates", mode: 'copy', overwrite:false
+    
+    input:
+        tuple val(pair_id), path(reads) 
+
+}
 workflow {
     read_pair = Channel.fromFilePairs("${raw_reads}/**/*R[1,2].fastq.gz", type: 'file')
     //println read_pair
