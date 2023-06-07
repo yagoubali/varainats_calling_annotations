@@ -8,7 +8,7 @@ referenceFile="${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.
 params.gatkPath="/media/yagoubali/bioinfo3/Project_Paul/gatk-4.4.0.0/gatk"
 params.outDir="testing"
 params.pl= "illumina"
-params.maxForks = 2
+params.maxForks=2
 raw_reads = params.fastqDir
 out_dir = file(params.outDir,  mode: "copy")
 
@@ -18,7 +18,7 @@ out_dir.mkdir()
 
 process runFastQC{
     cpus { 2 }
-    maxForks ${params.maxForks}
+    maxForks 2
     publishDir "${out_dir}/qc/raw/${pair_id}", mode: 'copy', overwrite:false
 
     input:
@@ -58,7 +58,7 @@ process multiqc{
 process genomeSize_heterozygosity {
     cpus { 2 }
     memory '2 GB'
-    maxForks ${params.maxForks}
+    maxForks 2
 
     publishDir "${out_dir}/genomeSize_heterozygosity/${pair_id}", mode: 'copy', overwrite:false
 
@@ -88,7 +88,7 @@ process genomeSize_heterozygosity {
 process run_bwa {
     cpus { 2 }
     memory '2 GB'
-    maxForks ${params.maxForks}
+    maxForks 2
 
     publishDir "${out_dir}/mapping/${pair_id}", mode: 'copy', overwrite:false
 
@@ -114,7 +114,7 @@ process run_bwa {
 process run_markDuplicatesSpark {
     cpus { 2 }
     memory '2 GB'
-    maxForks ${params.maxForks}
+    maxForks 2
 
     publishDir "${out_dir}/markDuplicates", mode: 'copy', overwrite:false
     
@@ -141,7 +141,7 @@ process run_markDuplicatesSpark {
 process run_BaseRecalibrator_ApplyBQSR{
     cpus { 2 }
     memory '2 GB'
-    maxForks ${params.maxForks}
+    maxForks 2
 
     publishDir "${out_dir}/BaseRecalibrator_ApplyBQSR", mode: 'copy', overwrite:false
     
