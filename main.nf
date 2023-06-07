@@ -8,6 +8,7 @@ referenceFile="${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.
 params.gatkPath="/media/yagoubali/bioinfo3/Project_Paul/gatk-4.4.0.0/gatk"
 params.outDir="testing"
 params.pl= "illumina"
+params.maxForks = 2
 raw_reads = params.fastqDir
 out_dir = file(params.outDir,  mode: "copy")
 
@@ -17,6 +18,7 @@ out_dir.mkdir()
 
 process runFastQC{
     cpus { 2 }
+    maxForks ${params.maxForks}
     publishDir "${out_dir}/qc/raw/${pair_id}", mode: 'copy', overwrite:false
 
     input:
@@ -56,6 +58,8 @@ process multiqc{
 process genomeSize_heterozygosity {
     cpus { 2 }
     memory '2 GB'
+    maxForks ${params.maxForks}
+
     publishDir "${out_dir}/genomeSize_heterozygosity/${pair_id}", mode: 'copy', overwrite:false
 
     input:
@@ -84,6 +88,8 @@ process genomeSize_heterozygosity {
 process run_bwa {
     cpus { 2 }
     memory '2 GB'
+    maxForks ${params.maxForks}
+
     publishDir "${out_dir}/mapping/${pair_id}", mode: 'copy', overwrite:false
 
     input:
@@ -108,20 +114,18 @@ process run_bwa {
 process run_markDuplicatesSpark {
     cpus { 2 }
     memory '2 GB'
+    maxForks ${params.maxForks}
+
     publishDir "${out_dir}/markDuplicates", mode: 'copy', overwrite:false
     
     input:
         tuple val(pair_id), path(reads) 
 
     output:
-        path ("*dedup_metrics.txt")
-        path("*sorted_dedup.bam")
+         tuple path("*dedup_metrics.txt"), path("*sorted_dedup.bam")
 
 
     script:
-    ///home/yagoubali/anaconda3/bin/gatk  --java-options "-Djava.io.tmpdir=tmpdir" 
-    //MarkDuplicatesSpark       -I SRR14509522.sorted.bam    -M dedup_metrics.txt    -O sorted_dedup.bam  --remove-sequencing-duplicates
-
     """
     mkdir -p ${pair_id}
     ${params.gatkPath}  \
@@ -134,13 +138,37 @@ process run_markDuplicatesSpark {
     // rm -r ${pair_id}
 }
 
-process run_BaseRecalibrator{
-     cpus { 2 }
+process run_BaseRecalibrator_ApplyBQSR{
+    cpus { 2 }
     memory '2 GB'
-    //publishDir "${out_dir}/markDuplicates", mode: 'copy', overwrite:false
+    maxForks ${params.maxForks}
+
+    publishDir "${out_dir}/BaseRecalibrator_ApplyBQSR", mode: 'copy', overwrite:false
     
     input:
         tuple val(pair_id), path(reads) 
+    output:
+        tuple path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam")  
+    
+    script:    
+
+    """
+      mkdir -p ${pair_id}
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=${pair_id}" \
+     BaseRecalibrator \
+    -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
+    -R ${data}/bundle/Reference/Homo_sapiens_assembly38.fasta \
+    --known-sites ${data}/bundle/hg38/Homo_sapiens_assembly38.dbsnp138.vcf \
+    -O ${pair_id}_recal_data.table
+
+
+    ${bin}/gatk   --java-options "-Djava.io.tmpdir=${pair_id}" \
+    ApplyBQSR \
+    -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
+    -R ${data}/bundle/Reference/Homo_sapiens_assembly38.fasta \
+    --bqsr-recal-file ${pair_id}_recal_data.table \
+    -O ${pair_id}_.sort.dup.bqsr.bam
+    """  
 
 }
 workflow {
@@ -158,8 +186,9 @@ workflow {
     sorted_bam_ch=run_bwa(read_pair2).map{T->[T[0], T[1]]}
     //.fromPath( "${out_dir}/mapping/**/*sorted.bam")
     // println pair_id_mapped_channel.view()
-     println sorted_bam_ch.view()
-     run_markDuplicatesSpark(sorted_bam_ch)
+    //println sorted_bam_ch.view()
+    BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[1]]}
+    println BaseRecalibrator_ApplyBQSR_ch.view()
 
 ///home/yagoubali/anaconda3/bin/gatk 
 }
