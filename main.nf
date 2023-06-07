@@ -148,7 +148,7 @@ process run_BaseRecalibrator_ApplyBQSR{
     input:
         tuple val(pair_id), path(reads) 
     output:
-        tuple path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam")  
+        tuple val(pair_id), path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam")  
     
     script:    
 
@@ -157,17 +157,17 @@ process run_BaseRecalibrator_ApplyBQSR{
     ${params.gatkPath}  --java-options "-Djava.io.tmpdir=${pair_id}" \
      BaseRecalibrator \
     -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
-    -R ${data}/bundle/Reference/Homo_sapiens_assembly38.fasta \
-    --known-sites ${data}/bundle/hg38/Homo_sapiens_assembly38.dbsnp138.vcf \
+    -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
+    --known-sites ${params.reference_baseFolder}/hg38/Homo_sapiens_assembly38.dbsnp138.vcf \
     -O ${pair_id}_recal_data.table
 
 
-    ${bin}/gatk   --java-options "-Djava.io.tmpdir=${pair_id}" \
+    ${params.gatkPath}    --java-options "-Djava.io.tmpdir=${pair_id}" \
     ApplyBQSR \
     -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
-    -R ${data}/bundle/Reference/Homo_sapiens_assembly38.fasta \
+    -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
     --bqsr-recal-file ${pair_id}_recal_data.table \
-    -O ${pair_id}_.sort.dup.bqsr.bam
+    -O ${pair_id}_dup.bqsr.bam
     """  
 
 }
@@ -188,6 +188,8 @@ workflow {
     // println pair_id_mapped_channel.view()
     //println sorted_bam_ch.view()
     BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[2]]}
+    run_BaseRecalibrator_ApplyBQSR(BaseRecalibrator_ApplyBQSR_ch)
+
     println BaseRecalibrator_ApplyBQSR_ch.view()
 
 ///home/yagoubali/anaconda3/bin/gatk 
