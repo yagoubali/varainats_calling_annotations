@@ -122,7 +122,7 @@ process run_markDuplicatesSpark {
         tuple val(pair_id), path(reads) 
 
     output:
-         tuple path("*dedup_metrics.txt"), path("*sorted_dedup.bam")
+         tuple val(pair_id), path("*dedup_metrics.txt"), path("*sorted_dedup.bam")
 
 
     script:
@@ -187,7 +187,7 @@ workflow {
     //.fromPath( "${out_dir}/mapping/**/*sorted.bam")
     // println pair_id_mapped_channel.view()
     //println sorted_bam_ch.view()
-    BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[1]]}
+    BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[2]]}
     println BaseRecalibrator_ApplyBQSR_ch.view()
 
 ///home/yagoubali/anaconda3/bin/gatk 
