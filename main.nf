@@ -147,7 +147,7 @@ process run_BaseRecalibrator_ApplyBQSR{
     input:
         tuple val(pair_id), path(reads) 
     output:
-        tuple val(pair_id), path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam"), path("*vcf.gz") 
+        tuple val(pair_id), path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam"), path("*vcf.gz"), path("*.g.vcf.gz.tbi") 
     
     script:    
 
