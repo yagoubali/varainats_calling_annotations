@@ -135,7 +135,6 @@ process run_markDuplicatesSpark {
 	-M ${pair_id}_dedup_metrics.txt \
 	-O ${pair_id}_sorted_dedup.bam 
     """ 
-    // rm -r ${pair_id}
 }
 
 process run_BaseRecalibrator_ApplyBQSR{
@@ -148,7 +147,48 @@ process run_BaseRecalibrator_ApplyBQSR{
     input:
         tuple val(pair_id), path(reads) 
     output:
-        tuple val(pair_id), path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam")  
+        tuple val(pair_id), path("*_recal_data.table"), path("*_dup.bqsr.bai"), path("*_dup.bqsr.bam"), path("*vcf.gz") 
+    
+    script:    
+
+    """
+      mkdir -p ${pair_id}
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=${pair_id}" \
+     BaseRecalibrator \
+    -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
+    -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
+    --known-sites ${params.reference_baseFolder}/hg38/Homo_sapiens_assembly38.dbsnp138.vcf \
+    -O ${pair_id}_recal_data.table
+
+
+    ${params.gatkPath}    --java-options "-Djava.io.tmpdir=${pair_id}" \
+    ApplyBQSR \
+    -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
+    -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
+    --bqsr-recal-file ${pair_id}_recal_data.table \
+    -O ${pair_id}_dup.bqsr.bam
+
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=${pair_id}" \
+     HaplotypeCaller \
+     -I ${pair_id}_dup.bqsr.bam \
+     -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
+     -ERC GVCF \
+    -O ${pair_id}.g.vcf.gz
+    """  
+
+}
+
+process run_CombineGVCFs_GenotypeGVCFs{
+    cpus { 2 }
+    memory '2 GB'
+    maxForks 2
+
+    publishDir "${out_dir}/HaplotypeCaller", mode: 'copy', overwrite:false
+    
+    input:
+        tuple val(pair_id), path(reads) 
+    output:
+        tuple val(pair_id), path("*vcf.gz")  
     
     script:    
 
@@ -178,19 +218,12 @@ workflow {
     // ---> println pair_id_qc_channel.view()
     qcFiles=runFastQC(read_pair)
     multiqc(qcFiles)
-    //println read_pair.view()
     read_pair2 = Channel.fromFilePairs("${raw_reads}/**/*R[1,2].fastq.gz", type: 'file')
     genomeSize_heterozygosity(read_pair)
-    //println read_pair.view()
-    //pair_id_mapped_channel = 
     sorted_bam_ch=run_bwa(read_pair2).map{T->[T[0], T[1]]}
-    //.fromPath( "${out_dir}/mapping/**/*sorted.bam")
-    // println pair_id_mapped_channel.view()
-    //println sorted_bam_ch.view()
     BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[2]]}
     run_BaseRecalibrator_ApplyBQSR(BaseRecalibrator_ApplyBQSR_ch)
 
     println BaseRecalibrator_ApplyBQSR_ch.view()
 
-///home/yagoubali/anaconda3/bin/gatk 
 }
