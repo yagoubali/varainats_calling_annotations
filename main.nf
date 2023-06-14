@@ -178,36 +178,63 @@ process run_BaseRecalibrator_ApplyBQSR{
 
 }
 
-process run_CombineGVCFs_GenotypeGVCFs{
+process run_prepareVCF{
     cpus { 2 }
     memory '2 GB'
     maxForks 2
 
-    publishDir "${out_dir}/HaplotypeCaller", mode: 'copy', overwrite:false
+    publishDir "${out_dir}/final", mode: 'copy', overwrite:false
     
     input:
-        tuple val(pair_id), path(reads) 
+        val(pair_id) 
     output:
-        tuple val(pair_id), path("*vcf.gz")  
+        tuple path("*.g.vcf.gz"),path("*.g.vcf.gz.tbi"), path("output.vcf.gz"), path("output.vcf.gz.tbi")
+        path("snps.recal")
+        path ("snps.tranches")
+        path("output.vqsr.vcf")
+        path("output.vqsr.vcf.tbi")
+
     
     script:    
 
     """
-      mkdir -p ${pair_id}
-    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=${pair_id}" \
-     BaseRecalibrator \
-    -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
+    mkdir ToCombine
+     ls ${out_dir}/BaseRecalibrator_ApplyBQSR/*g.vcf.gz > ToCombine.list
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=ToCombine" \
+     CombineGVCFs \
     -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
-    --known-sites ${params.reference_baseFolder}/hg38/Homo_sapiens_assembly38.dbsnp138.vcf \
-    -O ${pair_id}_recal_data.table
+    -V ToCombine.list \
+    -O combined.g.vcf.gz
 
 
-    ${params.gatkPath}    --java-options "-Djava.io.tmpdir=${pair_id}" \
-    ApplyBQSR \
-    -I ${out_dir}/markDuplicates/${pair_id}_sorted_dedup.bam \
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=ToCombine" \
+     GenotypeGVCFs \
     -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
-    --bqsr-recal-file ${pair_id}_recal_data.table \
-    -O ${pair_id}_dup.bqsr.bam
+    -V combined.g.vcf.gz \
+    -O output.vcf.gz
+
+
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=ToCombine" \
+     VariantRecalibrator  -V output.vcf.gz  \
+    --trust-all-polymorphic \
+    -mode SNP \
+    --max-gaussians 6 \
+    --resource:dbsnp,known=true,training=true,truth=true,prior=7  ${params.reference_baseFolder}/hg38/Homo_sapiens_assembly38.dbsnp138.vcf \
+    -an QD -an MQRankSum -an ReadPosRankSum -an FS -an MQ -an SOR -an DP \
+    -O snps.recal \
+    --tranches-file snps.tranches
+
+    ${params.gatkPath}  --java-options "-Djava.io.tmpdir=ToCombine" \
+    ApplyVQSR \
+    -R ${params.reference_baseFolder}/Reference/Homo_sapiens_assembly38.fasta \
+    -V output.vcf.gz \
+    -O output.vqsr.vcf \
+    --truth-sensitivity-filter-level 99.0 \
+    --tranches-file snps.tranches \
+    --recal-file nps.recal \
+    -mode SNP
+
+
     """  
 
 }
@@ -223,6 +250,7 @@ workflow {
     sorted_bam_ch=run_bwa(read_pair2).map{T->[T[0], T[1]]}
     BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[2]]}
     run_BaseRecalibrator_ApplyBQSR(BaseRecalibrator_ApplyBQSR_ch)
+    run_prepareVCF(run_BaseRecalibrator_ApplyBQSR)
 
     println BaseRecalibrator_ApplyBQSR_ch.view()
 
