@@ -184,9 +184,11 @@ process run_prepareVCF{
     maxForks 2
 
     publishDir "${out_dir}/final", mode: 'copy', overwrite:false
-    
+
     input:
-        val(pair_id) 
+    val x
+        //tuple val(pair_id), path(reads)
+       
     output:
         tuple path("*.g.vcf.gz"),path("*.g.vcf.gz.tbi"), path("output.vcf.gz"), path("output.vcf.gz.tbi")
         path("snps.recal")
@@ -213,7 +215,6 @@ process run_prepareVCF{
     -V combined.g.vcf.gz \
     -O output.vcf.gz
 
-
     ${params.gatkPath}  --java-options "-Djava.io.tmpdir=ToCombine" \
      VariantRecalibrator  -V output.vcf.gz  \
     --trust-all-polymorphic \
@@ -233,8 +234,6 @@ process run_prepareVCF{
     --tranches-file snps.tranches \
     --recal-file nps.recal \
     -mode SNP
-
-
     """  
 
 }
@@ -249,8 +248,8 @@ workflow {
     genomeSize_heterozygosity(read_pair)
     sorted_bam_ch=run_bwa(read_pair2).map{T->[T[0], T[1]]}
     BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[2]]}
-    run_BaseRecalibrator_ApplyBQSR(BaseRecalibrator_ApplyBQSR_ch)
-    run_prepareVCF(run_BaseRecalibrator_ApplyBQSR)
+    prepare_vcf_ch=run_BaseRecalibrator_ApplyBQSR(BaseRecalibrator_ApplyBQSR_ch)
+    run_prepareVCF(prepare_vcf_ch.collect())
 
     println BaseRecalibrator_ApplyBQSR_ch.view()
 
