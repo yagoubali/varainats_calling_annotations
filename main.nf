@@ -232,7 +232,7 @@ process run_prepareVCF{
     -O output.vqsr.vcf \
     --truth-sensitivity-filter-level 99.0 \
     --tranches-file snps.tranches \
-    --recal-file nps.recal \
+    --recal-file snps.recal \
     -mode SNP
     """  
 
