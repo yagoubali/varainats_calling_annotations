@@ -15,7 +15,7 @@ out_dir = file(params.outDir,  mode: "copy")
 reference=channel.value(referenceFile)
 out_dir.mkdir()
 
-
+params.snpEFF="/media/yagoubali/bioinfo3/Project_Paul/snpEff/snpEff/snpEff.jar"
 process runFastQC{
     cpus { 2 }
     maxForks 2
@@ -190,11 +190,7 @@ process run_prepareVCF{
         //tuple val(pair_id), path(reads)
        
     output:
-        tuple path("*.g.vcf.gz"),path("*.g.vcf.gz.tbi"), path("output.vcf.gz"), path("output.vcf.gz.tbi")
-        path("snps.recal")
-        path ("snps.tranches")
-        path("output.vqsr.vcf")
-        path("output.vqsr.vcf.tbi")
+        tuple path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), path("output.vcf.gz"), path("output.vcf.gz.tbi"), path("snps.recal"), path ("snps.tranches"), path("output.vqsr.vcf"), path("output.vqsr.vcf.idx")
 
     
     script:    
@@ -237,11 +233,34 @@ process run_prepareVCF{
     """  
 
 }
+
+
+process run_snpEFF{
+    cpus { 2 }
+    memory '2 GB'
+    maxForks 2
+
+    publishDir "${out_dir}/final", mode: 'copy', overwrite:false
+
+    input:
+    val x
+        //tuple val(pair_id), path(reads)
+       
+    output:
+        tuple path("output_annotated.vcf"), path("snpEff_summary.html"),path("snpEff_genes.txt")
+
+
+    
+    script:    
+
+    """
+    java -Xmx8g -jar  ${params.snpEFF} GRCh38.105 \
+    ${out_dir}/final/output.vqsr.vcf>output_annotated.vcf
+    """
+}
+
 workflow {
     read_pair = Channel.fromFilePairs("${raw_reads}/**/*R[1,2].fastq.gz", type: 'file')
-    //println read_pair
-    // --> pair_id_qc_channel = runFastQC(read_pair).map{T->[T[0],T[1]]}
-    // ---> println pair_id_qc_channel.view()
     qcFiles=runFastQC(read_pair)
     multiqc(qcFiles)
     read_pair2 = Channel.fromFilePairs("${raw_reads}/**/*R[1,2].fastq.gz", type: 'file')
@@ -249,8 +268,9 @@ workflow {
     sorted_bam_ch=run_bwa(read_pair2).map{T->[T[0], T[1]]}
     BaseRecalibrator_ApplyBQSR_ch=run_markDuplicatesSpark(sorted_bam_ch).map{T->[T[0],T[2]]}
     prepare_vcf_ch=run_BaseRecalibrator_ApplyBQSR(BaseRecalibrator_ApplyBQSR_ch)
-    run_prepareVCF(prepare_vcf_ch.collect())
+    annotation_ch=run_prepareVCF(prepare_vcf_ch.collect())
+    snpEFF_ch=run_snpEFF(annotation_ch.collect())
 
-    println BaseRecalibrator_ApplyBQSR_ch.view()
+    println snpEFF_ch.view()
 
 }
