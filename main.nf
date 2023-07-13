@@ -43,8 +43,8 @@ process runFastQC{
 }
 
 process multiqc{
-    container 'yagoubali/multiqc'
     publishDir "${out_dir}/qc/raw", mode: 'copy', overwrite: false
+    container 'yagoubali/multiqc'
 
     input:
         path('*.zip')
@@ -89,10 +89,11 @@ process genomeSize_heterozygosity {
 }
 
 process run_bwa {
-    cpus { 2 }
-    memory '2 GB'
-    maxForks 2
     container 'yagoubali/bwa'
+    //cpus { 2 }
+    //memory '2 GB'
+    //maxForks 2
+
 
     publishDir "${out_dir}/mapping/${pair_id}", mode: 'copy', overwrite:false
 
@@ -104,6 +105,7 @@ process run_bwa {
 
     script:
     readGroup="@RG\\tID:${pair_id}\\tLB:${pair_id}\\tPL:${params.pl}\\tSM:${pair_id}"
+
     """
     bwa mem -t 2 -aM -R \"${readGroup}\" ${referenceFile}   \
     ${params.fastqDir}/${pair_id}/${reads[0]}   \
@@ -116,10 +118,11 @@ process run_bwa {
 }
 
 process run_markDuplicatesSpark {
+    container 'yagoubali/gatk:4.4.0.0'
     cpus { 2 }
     memory '2 GB'
     maxForks 2
-    container 'yagoubali/gatk:4.4.0.0'
+
 
     publishDir "${out_dir}/markDuplicates", mode: 'copy', overwrite:false
     
@@ -143,10 +146,11 @@ process run_markDuplicatesSpark {
 }
 
 process run_BaseRecalibrator_ApplyBQSR{
+    container 'yagoubali/gatk:4.4.0.0'
     cpus { 2 }
     memory '2 GB'
     maxForks 2
-    container 'yagoubali/gatk:4.4.0.0'
+
 
     publishDir "${out_dir}/BaseRecalibrator_ApplyBQSR", mode: 'copy', overwrite:false
     
@@ -185,10 +189,11 @@ process run_BaseRecalibrator_ApplyBQSR{
 }
 
 process run_prepareVCF{
-    cpus { 2 }
-    memory '2 GB'
-    maxForks 2
     container 'yagoubali/gatk:4.4.0.0'
+    cpus { 4 }
+    memory '4 GB'
+    maxForks 2
+
 
     publishDir "${out_dir}/final", mode: 'copy', overwrite:false
 
@@ -243,10 +248,11 @@ process run_prepareVCF{
 
 
 process run_snpEFF{
+    container 'yagoubali/snpeff'
     cpus { 2 }
     memory '2 GB'
     maxForks 2
-    container 'yagoubali/snpeff'
+
 
 
     publishDir "${out_dir}/final", mode: 'copy', overwrite:false
@@ -271,7 +277,7 @@ process run_snpEFF{
 workflow {
     read_pair = Channel.fromFilePairs("${raw_reads}/**/*R[1,2].fastq.gz", type: 'file')
     qcFiles=runFastQC(read_pair)
-    multiqc(qcFiles)
+    multiqc(qcFiles.collect())
     read_pair2 = Channel.fromFilePairs("${raw_reads}/**/*R[1,2].fastq.gz", type: 'file')
     genomeSize_heterozygosity(read_pair)
     sorted_bam_ch=run_bwa(read_pair2).map{T->[T[0], T[1]]}
