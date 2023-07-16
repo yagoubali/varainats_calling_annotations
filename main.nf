@@ -20,6 +20,8 @@ process runFastQC{
     cpus { 2 }
     maxForks 2
     container "yagoubali/fastqc:0.11.9"
+   containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
+
     publishDir "${out_dir}/qc/raw/${pair_id}", mode: 'copy', overwrite:false
 
     input:
@@ -45,6 +47,7 @@ process runFastQC{
 process multiqc{
     publishDir "${out_dir}/qc/raw", mode: 'copy', overwrite: false
     container 'yagoubali/multiqc'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
 
     input:
         path('*.zip')
@@ -62,6 +65,7 @@ process genomeSize_heterozygosity {
     memory '2 GB'
     maxForks 2
     container 'yagoubali/jellyfish:2.2.10'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
 
     publishDir "${out_dir}/genomeSize_heterozygosity/${pair_id}", mode: 'copy', overwrite:false
 
@@ -90,6 +94,7 @@ process genomeSize_heterozygosity {
 
 process run_bwa {
     container 'yagoubali/bwa'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
     //cpus { 2 }
     //memory '2 GB'
     //maxForks 2
@@ -118,10 +123,11 @@ process run_bwa {
 }
 
 process run_markDuplicatesSpark {
-    container 'yagoubali/gatk:4.4.0.0'
     cpus { 2 }
-    memory '2 GB'
+    //memory '2 GB'
     maxForks 2
+    container 'yagoubali/gatk:4.4.0.0'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
 
 
     publishDir "${out_dir}/markDuplicates", mode: 'copy', overwrite:false
@@ -147,11 +153,11 @@ process run_markDuplicatesSpark {
 
 process run_BaseRecalibrator_ApplyBQSR{
     container 'yagoubali/gatk:4.4.0.0'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
     cpus { 2 }
-    memory '2 GB'
-    maxForks 2
-
-
+    //memory '2 GB'
+    maxForks 1
+    
     publishDir "${out_dir}/BaseRecalibrator_ApplyBQSR", mode: 'copy', overwrite:false
     
     input:
@@ -190,6 +196,7 @@ process run_BaseRecalibrator_ApplyBQSR{
 
 process run_prepareVCF{
     container 'yagoubali/gatk:4.4.0.0'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
     cpus { 4 }
     memory '4 GB'
     maxForks 2
@@ -249,6 +256,7 @@ process run_prepareVCF{
 
 process run_snpEFF{
     container 'yagoubali/snpeff'
+    containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
     cpus { 2 }
     memory '2 GB'
     maxForks 2
