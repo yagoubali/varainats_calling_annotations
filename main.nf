@@ -45,6 +45,7 @@ process runFastQC{
 }
 
 process multiqc{
+    cpus { 2 }
     publishDir "${out_dir}/qc/raw", mode: 'copy', overwrite: false
     container 'yagoubali/multiqc'
     containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
@@ -62,7 +63,7 @@ process multiqc{
 
 process genomeSize_heterozygosity {
     cpus { 2 }
-    memory '2 GB'
+    //memory '2 GB'
     maxForks 2
     container 'yagoubali/jellyfish:2.2.10'
     containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
@@ -258,8 +259,8 @@ process run_snpEFF{
     container 'yagoubali/snpeff'
     containerOptions "--volume ${params.reference_baseFolder}:${params.reference_baseFolder} --volume ${out_dir}:${out_dir}"
     cpus { 2 }
-    memory '2 GB'
-    maxForks 2
+    //memory '2 GB'
+    maxForks 1
 
 
 
